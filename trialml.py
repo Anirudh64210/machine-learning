@@ -16,6 +16,7 @@ from sklearn.model_selection import train_test_split
 from keras.callbacks import  EarlyStopping, ReduceLROnPlateau
 
 import warnings
+print("Hello World")
 warnings.filterwarnings('ignore')
 
 data = pd.read_csv('spam_ham_dataset.csv')
