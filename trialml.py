@@ -14,6 +14,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
 from keras.callbacks import  EarlyStopping, ReduceLROnPlateau
+from sklearn.metrics import classification_report, confusion_matrix
 
 import warnings
 print("Hello World")
@@ -37,7 +38,7 @@ plt.xticks(ticks=[0,1], labels = ['Ham(Not Spam)', 'Spam'])
 plt.show()  
 
 #preprocessing the data
-balanced_data['text'] = balanced_data['text'].str_replace('Subject', '')
+balanced_data['text'] = balanced_data['text'].str.replace('Subject', '')
 balanced_data.head()
 punctuations_list = string.punctuation
 def remove_punctuations(text):
@@ -62,5 +63,68 @@ balanced_data['text'] = balanced_data['text'].apply(lambda text: remove_stopword
 balanced_data.head()
 
         
+def plot_word_cloud(data, typ):
+    email_corpus = "".join(data['text'])
+    wc = WordCloud(width=800, height=400, background_color='white').generate(email_corpus)   
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wc, interpolation='bilinear')    
+    plt.axis('off')
+    plt.title(f"Word Cloud for {typ} Emails")
+    plt.show()
+plot_word_cloud(balanced_data[balanced_data['label'] == 'ham'], 'Ham')
+plot_word_cloud(balanced_data[balanced_data['label'] == 'spam'], 'Spam')
 
-    
+train_X, test_X, train_Y, test_Y = train_test_split(balanced_data['text'], balanced_data['label'], test_size=0.2, random_state=42)
+tokenizer = Tokenizer(num_words=10000, oov_token='<OOV>')
+tokenizer.fit_on_texts(train_X)
+
+train_sequences = tokenizer.texts_to_sequences(train_X)
+test_sequences = tokenizer.texts_to_sequences(test_X)
+max_len = 100
+
+train_sequences = pad_sequences(train_sequences, maxlen=max_len, padding='post')
+test_sequences = pad_sequences(test_sequences, maxlen=max_len, padding='post')
+train_Y =(train_Y == 'spam').astype(int)
+test_Y =(test_Y == 'spam').astype(int)
+print(train_Y[:20])
+print(set(train_Y))
+print(train_sequences[:2])
+print(train_sequences.shape)
+print(len(tokenizer.word_index))
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Embedding(len(tokenizer.word_index)+1, 128, input_length=100),
+    tf.keras.layers.LSTM(64, dropout=0.2, recurrent_dropout=0.2),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(1, activation='sigmoid')
+])
+
+
+model.compile(
+    loss='binary_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy']
+)
+model.summary()
+
+es = EarlyStopping(patience = 3, monitor = 'val_accuracy', restore_best_weights=True)
+lr = ReduceLROnPlateau(patience = 2, monitor ='val_loss', factor =0.5, verbose=0)
+history = model.fit(
+    train_sequences, train_Y,
+    validation_data=(test_sequences, test_Y),
+    epochs = 20,
+    batch_size=32,
+    callbacks=[lr, es]
+)
+pred = (model.predict(test_sequences) > 0.5).astype(int)
+
+print(confusion_matrix(test_Y, pred))
+print(classification_report(test_Y, pred))
+
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend()
+plt.show()
+model.save("spam_ham_classifier.h5")
