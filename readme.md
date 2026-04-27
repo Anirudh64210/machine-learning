@@ -1,4 +1,4 @@
-## Hi me and whoever looking at this,
+## Hi me and whoever looking at this, ML
 -- Learning ML development w projects, this is a trial ml model spam ham detection, using NLP w TensorFlow/Keras, leveraging LSTM NN w embedding layers for text sequence modeling. 
 
 Pipeline Used:
